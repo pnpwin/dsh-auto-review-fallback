@@ -1,0 +1,3 @@
+- insert:
+    - id: pnpwin-auto-review-fallback
+      name: '@pnpwin/dsh-auto-review-fallback'

@@ -1,0 +1,31 @@
+{
+  "name": "@pnpwin/dsh-auto-review-fallback",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent Auto review models and fail-closed, ordered availability fallbacks for DeepSeek Harness.",
+  "license": "MIT",
+  "author": "pnpwin",
+  "homepage": "https://github.com/pnpwin/dsh-auto-review-fallback#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/pnpwin/dsh-auto-review-fallback.git" },
+  "bugs": { "url": "https://github.com/pnpwin/dsh-auto-review-fallback/issues" },
+  "keywords": ["dsh-plugin", "deepseek-harness", "auto-review", "fallback", "llm", "codex"],
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["host.js", "host-runtime.js", "codex-compat.js", "router.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.ru.md", "LICENSE", "UPSTREAM.md"],
+  "scripts": { "test": "node --test test/*.test.js" },
+  "engines": { "node": ">=24.9.0", "dsh": "0.2.2-rc.1" },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-api-remotes", "@deepseek-ai/dsh-client-locale"]
+    }
+  }
+}
