@@ -78,7 +78,8 @@ test('session-mode Codex compatibility re-enters once and preserves frozen input
   assert.equal(dispatches, 1);
   assert.equal(Object.hasOwn(sent, 'temperature'), false);
   assert.equal(request.temperature, 0);
-  for (const key of Object.keys(request).filter(key => key !== 'temperature')) assert.equal(sent[key], request[key]);
+  for (const key of Object.keys(request).filter(key => !['temperature', 'signal'].includes(key))) assert.equal(sent[key], request[key]);
+  assert.ok(sent.signal instanceof AbortSignal);
 });
 
 test('Codex compatibility does not affect unrelated requests or already-compatible options', () => {

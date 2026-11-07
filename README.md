@@ -60,7 +60,7 @@ The profile may link this directory. Do not delete or move it while installed. A
 
 ## Configuration
 
-The default is **Follow session**: use the conversation's current model. No new provider is chosen automatically. The Codex temperature compatibility fix also applies in this mode.
+The default is **Follow session**: use the conversation's current model, with the same bounded preparation and request framing as custom chains, but without fallbacks. No new provider is chosen automatically. The Codex temperature compatibility fix also applies in this mode.
 
 To select a lighter reviewer:
 
@@ -72,6 +72,14 @@ To select a lighter reviewer:
 Saving uses DSH's own settings API with revision/conflict checks. Changes apply to new reviews, including in existing conversations. An in-flight review keeps its original configuration snapshot. The conversation model and session permission mode are not changed.
 
 If a provider was added/renamed in Models, reopen the page or click **Reload catalog**. An unavailable catalog does not remove saved/manual model IDs.
+
+### Provider compatibility (v0.1.2)
+
+Review calls are prepared against the exact adapter registration used to dispatch them. Explicit effort and adapter defaults are preserved. If a model advertises reasoning but cannot turn it off and has no configured default, the first advertised supported effort is selected; omission must not become an unsupported implicit `off` (GLM-5.3 and Kimi K3 are examples).
+
+The original review policy and every retained history item are kept. A constant task reminder prevents quoted historical tasks from being treated as the current conversation: models supporting in-history system updates receive it after the history; other adapters receive it in the initial system prompt. No historical content is promoted to system authority. The upstream strict risk/decision parser still owns the decision, and malformed output or a denial never triggers another model. Framing improves adherence, not the reliability of a model's risk assessment.
+
+Kimi Coding subscriptions use the `kimi-coding` connection and its catalog IDs, such as `kimi-for-coding` or `k3`. The `moonshotai` connection uses the separate Moonshot API: a working subscription key can receive HTTP 401 there. Configure the correct connection in Models; the router does not silently rewrite provider/model identities or copy credentials. pi-ai's structured `AUTH` failure now permits an availability fallback even when no numeric status is retained.
 
 ### Privacy
 
@@ -105,7 +113,9 @@ node --check src/host.js
 node --check src/client.js
 ```
 
-The dependency-free Node tests cover routing, failures, denials, malformed output, cancellation, bounded draining, concurrent reviews, configuration snapshots, native Models catalog projection, explicit Client remote dependencies, package metadata, runtime-module resolution, and Codex compatibility. They use mocked streams and make **no real model inference calls**.
+The dependency-free Node tests cover routing (including Follow session), failures, denials, malformed output, cancellation, bounded draining, concurrent reviews, configuration snapshots, native Models catalog projection, explicit Client remote dependencies, package metadata, runtime-module resolution, Codex compatibility, capability-aware reasoning, and constant-only review framing. They use mocked streams and make **no real model inference calls**.
+
+During v0.1.2 diagnosis, a restored historical review input reproduced Codex prose in place of JSON. Separate live replay checks with the new framing passed the upstream strict parser for Codex Luna, Sol, Astra, Terra and DeepSeek Flash. After configuring the native Kimi Coding connection, `kimi-for-coding` and `k3` also passed prepared-call streaming and the upstream strict parser. The installed primary Auto review chain passed a restored-input check as well; these diagnostics classify calls without executing the reviewed tool bodies. Provider balances and model decisions may change. Private replay inputs, credentials and machine-specific fixtures are not part of this repository.
 
 The local prototype also passed in-process checks against the real DSH LLM waterfall and configured provider catalogs. The reporting user confirmed the original Codex workaround works. Browser clicks, form submission, and this renamed public package are not claimed to have been end-to-end tested. For a harmless manual check, select your reviewer, enable Auto review, and ask the agent to run only `pwd`. Never test denial behavior with real destructive commands.
 

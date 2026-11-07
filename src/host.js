@@ -1,4 +1,5 @@
 import { requireHarnessModule } from './host-runtime.js';
+import { createReviewStream } from './review-stream.js';
 import { withCodexCompatibility } from './codex-compat.js';
 import { createReviewHandler, DEFAULT_ROUTING, normalizeRouting } from './router.js';
 
@@ -25,7 +26,7 @@ export function apply(ctx, config) {
   const lifetime = new AbortController();
   ctx.effect(() => ctx.settings.configure({ auto: false }));
   const handler = createReviewHandler({
-    stream: options => ctx.llm.stream(options),
+    stream: createReviewStream(ctx.llm),
     readRouting: () => config.routing.get(),
     signal: lifetime.signal,
     onAttempt: entry => {

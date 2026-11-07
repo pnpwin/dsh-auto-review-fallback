@@ -4,7 +4,7 @@ const MAX_BUFFER_BYTES = 2 * 1024 * 1024;
 const MAX_CHUNKS = 20000;
 const AVAILABILITY_CODES = new Set([
   'RATE_LIMIT', 'QUOTA', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'NETWORK',
-  'NO_ADAPTER', 'UNKNOWN_MODEL', 'MISSING_CREDENTIAL', 'INVALID_CREDENTIAL',
+  'NO_ADAPTER', 'UNKNOWN_MODEL', 'MISSING_CREDENTIAL', 'INVALID_CREDENTIAL', 'AUTH',
   'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN',
   'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT',
 ]);
@@ -156,23 +156,26 @@ export function createReviewHandler({ stream, readRouting, signal: lifetime, onA
   const handle = function handle(options, next) {
     if (options.purpose !== 'auto-review' || options[routed] === token) return next();
     const config = normalizeRouting(readRouting());
-    if (config.mode === 'session') return next();
+    const routes = config.mode === 'session'
+      ? [{ provider: options.provider, model: options.model }]
+      : config.routes;
     return (async function* () {
       const signals = [options.signal, lifetime].filter(Boolean);
       const parentSignal = signals.length ? AbortSignal.any(signals) : new AbortController().signal;
       const failures = [];
-      for (let index = 0; index < config.routes.length; index++) {
+      for (let index = 0; index < routes.length; index++) {
         if (parentSignal.aborted) {
           yield finishFailure('ABORTED', 'Auto review cancelled; no fallback started', true);
           return;
         }
-        const route = config.routes[index];
-        // Do not carry sampling/reasoning from another model. In particular Codex
-        // rejects temperature. Each target uses adapter defaults unless effort is
-        // explicitly set for that route. Policy/history remain identical objects.
+        const route = routes[index];
+        // Cross-model routes never inherit another model's sampling/reasoning.
+        // Session mode keeps its own controls; the Codex wrapper removes temperature.
         const { temperature: _temperature, reasoningEffort: _effort, ...rest } = options;
-        const request = Object.freeze({ ...rest, provider: route.provider, model: route.model,
-          ...(route.reasoningEffort ? { reasoningEffort: route.reasoningEffort } : {}), [routed]: token });
+        const request = config.mode === 'session'
+          ? Object.freeze({ ...options, [routed]: token })
+          : Object.freeze({ ...rest, provider: route.provider, model: route.model,
+            ...(route.reasoningEffort ? { reasoningEffort: route.reasoningEffort } : {}), [routed]: token });
         const running = attempt(stream, request, parentSignal, config.timeoutMs, cleanupMs);
         active.add(running);
         let result;
@@ -187,7 +190,7 @@ export function createReviewHandler({ stream, readRouting, signal: lifetime, onA
           index, outcome: reason.kind, ...(reason.failure ? { code: reason.failure.code } : {}) });
         // A stop (including deny or malformed JSON), max-tokens, policy failure,
         // abort, or a completed text answer is NEVER a reason to model-shop.
-        if (reason.kind !== 'error' || result.completedText || !isAvailabilityFailure(reason.failure)) {
+        if (config.mode === 'session' || reason.kind !== 'error' || result.completedText || !isAvailabilityFailure(reason.failure)) {
           if (result.chunks.length) yield* result.chunks;
           else yield result.finish;
           return;

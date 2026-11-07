@@ -83,7 +83,7 @@ describe('normalizeRouting', () => {
 });
 
 describe('availability classifier', () => {
-  for (const code of ['RATE_LIMIT', 'QUOTA', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'NETWORK', 'NO_ADAPTER', 'UNKNOWN_MODEL', 'MISSING_CREDENTIAL', 'INVALID_CREDENTIAL', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT']) {
+  for (const code of ['RATE_LIMIT', 'QUOTA', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'NETWORK', 'NO_ADAPTER', 'UNKNOWN_MODEL', 'MISSING_CREDENTIAL', 'INVALID_CREDENTIAL', 'AUTH', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT']) {
     test(`permits technical fallback for ${code}`, () => { assert.equal(isAvailabilityFailure({ code }), true); assert.equal(isAvailabilityFailure({ code: code.toLowerCase() }), true); });
   }
   for (const code of ['ABORTED', 'SAFETY', 'CONTENT_FILTER', 'POLICY_VIOLATION', 'INVALID_REQUEST', 'UNSUPPORTED_OPTION', 'UNSUPPORTED_REASONING_EFFORT', 'REVIEW_PROTOCOL', 'REVIEW_BUFFER_LIMIT', 'REVIEW_DRAIN_FAILED']) {
@@ -96,15 +96,19 @@ describe('availability classifier', () => {
 });
 
 describe('routing and safety', { concurrency: true }, () => {
-  test('session and non-review requests pass through with identical iterator identity', () => {
+  test('non-review requests pass through without reading settings or preparing a model', () => {
     const sentinel = source([]);
-    let reads = 0;
-    const handler = createReviewHandler({ stream: () => assert.fail('must not route'), readRouting: () => { reads++; return { mode: 'session', routes: [], timeoutMs: 1000 }; } });
-    const request = options();
-    assert.equal(handler(request, () => sentinel), sentinel);
+    const handler = createReviewHandler({ stream: () => assert.fail('must not route'), readRouting: () => assert.fail('must not read settings') });
     assert.equal(handler(options({ purpose: 'chat' }), () => sentinel), sentinel);
-    assert.equal(reads, 1, 'non-review requests must not even read routing');
-    assert.equal(request.model, 'session-model');
+  });
+  test('session mode prepares the session model once, retaining its controls and without fallback', async () => {
+    const request = options();
+    const h = harness({routing:{mode:'session',routes:[route('not-used')],timeoutMs:1000}});
+    assert.deepEqual(await collect(h.run(request)),text('{"allow":true}'));
+    assert.equal(h.calls.length,1);assert.equal(h.reads,1);assert.equal(h.passthrough,0);
+    for (const key of Object.keys(request).filter(key=>key!=='signal')) assert.equal(h.calls[0][key],request[key]);
+    const failed=harness({routing:{mode:'session',routes:[],timeoutMs:1000},respond:()=>source([unavailable('AUTH')])});
+    assert.deepEqual(await collect(failed.run()),[unavailable('AUTH')]);assert.equal(failed.calls.length,1);
   });
   for (const spread of [false, true]) test(`private symbol prevents recursive rerouting with ${spread ? 'spread' : 'identical'} middleware options`, async () => {
     const h = harness({ spread });
@@ -187,6 +191,14 @@ describe('routing and safety', { concurrency: true }, () => {
     assert.equal(h.attempts.length, 3);
     assert.ok(!JSON.stringify(output).includes('PRIVATE-FRAGMENT'));
     assert.ok(!JSON.stringify(output).includes('provider-private-message'));
+  });
+  test('pi-ai AUTH without an HTTP status falls back, but never after a completed answer', async () => {
+    const h = harness({ respond: (_, i) => source(i ? text('{"risk":"low","decision":"allow"}') : [unavailable('AUTH')]) });
+    assert.deepEqual(await collect(h.run()), text('{"risk":"low","decision":"allow"}'));
+    assert.equal(h.calls.length, 2);
+    const answered = harness({ respond: () => source(text('{"risk":"high","decision":"deny"}', unavailable('AUTH'))) });
+    assert.deepEqual(await collect(answered.run()), text('{"risk":"high","decision":"deny"}', unavailable('AUTH')));
+    assert.equal(answered.calls.length, 1);
   });
   test('unknown thrown errors fail closed without fallback or secret details', async () => {
     const h = harness({ respond: () => { throw new Error('SECRET provider credentials and request'); } });
