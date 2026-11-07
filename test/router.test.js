@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { createReviewHandler, normalizeRouting, isAvailabilityFailure } from '../router.js';
+import { createReviewHandler, normalizeRouting, isAvailabilityFailure } from '../src/router.js';
 
 const route = (model, extra = {}) => ({ provider: 'provider', model, reasoningEffort: '', ...extra });
 const chain = (routes = [route('primary'), route('fallback')], extra = {}) => ({ mode: 'chain', routes, timeoutMs: 1000, ...extra });

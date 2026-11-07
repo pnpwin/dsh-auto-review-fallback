@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import test from 'node:test';
-import { requireHarnessModule } from '../host-runtime.js';
-import { withCodexCompatibility } from '../codex-compat.js';
-import { createReviewHandler } from '../router.js';
+import { requireHarnessModule } from '../src/host-runtime.js';
+import { withCodexCompatibility } from '../src/codex-compat.js';
+import { createReviewHandler } from '../src/router.js';
 
 function resolver(works, { executionError } = {}) {
   const seen = [];
@@ -94,7 +94,7 @@ test('Codex compatibility does not affect unrelated requests or already-compatib
 test('published package identity, metadata and runtime files are consistent', async () => {
   const root = new URL('../', import.meta.url);
   const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
-  const client = await readFile(new URL('client.js', root), 'utf8');
+  const client = await readFile(new URL(pkg.exports['./client'], root), 'utf8');
   const patch = await readFile(new URL('cordis.patch.yml', root), 'utf8');
   assert.equal(pkg.name, '@pnpwin/dsh-auto-review-fallback');
   assert.equal(pkg.license, 'MIT');
@@ -106,10 +106,26 @@ test('published package identity, metadata and runtime files are consistent', as
     const data = JSON.parse(await readFile(new URL(`locale/${locale}.json`, root),'utf8'));
     assert.ok(data.meta.title && data.meta.description);
   }
-  for (const path of ['host.js','host-runtime.js','codex-compat.js','router.js','client.js']) {
+  assert.equal(pkg.exports['.'], './src/host.js');
+  assert.equal(pkg.exports['./client'], './src/client.js');
+  assert.equal(pkg.icon, './src/icon.svg');
+  assert.equal(pkg.exports['./icon'], pkg.icon);
+  assert.ok(pkg.files.includes('src/**'));
+  for (const path of ['src/host.js','src/host-runtime.js','src/codex-compat.js','src/router.js','src/client.js']) {
     const text = await readFile(new URL(path, root),'utf8');
     assert.ok(!text.includes('/Users/'));
     assert.ok(!text.includes('/Applications/DeepSeek Harness.app'));
-    assert.ok(pkg.files.includes(path));
+  }
+  assert.ok((await stat(new URL(pkg.icon, root))).isFile());
+});
+
+test('root files stay limited to documentation and DSH/package metadata', async () => {
+  const entries = await readdir(new URL('../', import.meta.url), { withFileTypes: true });
+  const metadata = new Set(['LICENSE', 'package.json', 'cordis.patch.yml', '.gitignore']);
+  for (const entry of entries.filter(item => item.isFile())) {
+    assert.ok(entry.name.endsWith('.md') || metadata.has(entry.name), `Move non-documentation file into src: ${entry.name}`);
+  }
+  for (const directory of ['src', 'test', 'locale', '.github']) {
+    assert.ok(entries.some(entry => entry.name === directory && entry.isDirectory()), directory);
   }
 });

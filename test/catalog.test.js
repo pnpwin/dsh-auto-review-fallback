@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 
-const source = await readFile(new URL('../client.js', import.meta.url), 'utf8');
+const source = await readFile(new URL('../src/client.js', import.meta.url), 'utf8');
 const start = source.indexOf('    function joinSettingsModels(');
 const end = source.indexOf('    // End pure Settings catalog projection.', start);
 assert.ok(start >= 0 && end > start);

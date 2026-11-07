@@ -17,10 +17,10 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Check syntax
         run: |
-          node --check host.js
-          node --check host-runtime.js
-          node --check codex-compat.js
-          node --check router.js
-          node --check client.js
+          node --check src/host.js
+          node --check src/host-runtime.js
+          node --check src/codex-compat.js
+          node --check src/router.js
+          node --check src/client.js
       - name: Run dependency-free tests
         run: npm test

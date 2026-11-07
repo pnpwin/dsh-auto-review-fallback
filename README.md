@@ -91,12 +91,18 @@ Every attempted reviewer receives the upstream review input: its authorization p
 
 Failed attempts are buffered so partial text does not leak into a fallback answer. The buffer is limited to 2 MiB/20,000 chunks. Unknown provider error messages are not guessed to be availability failures. Total latency can approach the sum of attempt deadlines plus bounded cleanup time. This is not a security guarantee, and it does not make unreliable reviewer decisions safe.
 
+## Repository layout
+
+All plugin runtime JavaScript and the icon live in `src/`. The root contains only documentation and package/DSH metadata. Existing `test/`, `locale/`, and `.github/` directories keep their roles. This is an uncompiled JavaScript bundle: DSH loads the `src/` entry points declared in the package exports; no additional build step is required.
+
+The owner's standing layout rules are recorded in [AGENTS.md](./AGENTS.md) and enforced by a package-layout regression test. Runtime behavior and the settings namespace are unchanged by the v0.1.1 relocation. Restart DSH after updating an installed package to the new entry paths.
+
 ## Verification
 
 ```sh
 npm test
-node --check host.js
-node --check client.js
+node --check src/host.js
+node --check src/client.js
 ```
 
 The dependency-free Node tests cover routing, failures, denials, malformed output, cancellation, bounded draining, concurrent reviews, configuration snapshots, native Models catalog projection, explicit Client remote dependencies, package metadata, runtime-module resolution, and Codex compatibility. They use mocked streams and make **no real model inference calls**.
