@@ -1,6 +1,6 @@
 {
   "name": "@pnpwin/dsh-auto-review-fallback",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "Independent Auto review models and fail-closed, ordered availability fallbacks for DeepSeek Harness.",
@@ -19,7 +19,7 @@
   },
   "files": ["src/**", "cordis.patch.yml", "locale/*.json", "README.md", "README.ru.md", "LICENSE", "UPSTREAM.md", "AGENTS.md"],
   "scripts": { "test": "node --test test/*.test.js" },
-  "engines": { "node": ">=24.9.0", "dsh": "0.2.2-rc.1" },
+  "engines": { "node": ">=24.9.0", "dsh": ">=0.2.2-rc.1 <0.3.0" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {
